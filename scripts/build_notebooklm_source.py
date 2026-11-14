@@ -7,6 +7,7 @@ OUT_FILE = ROOT / "NOTEBOOKLM_FULL_SOURCE.txt"
 SOURCE_FILES = [
     "src/__init__.py",
     "src/pipeline.py",
+    "src/visualize.py",
     "scripts/prepare_dataset.py",
     "scripts/generate_diagrams_matplotlib.py",
     "scripts/verify_requirements.py",

@@ -143,6 +143,12 @@ class TestDataAnalyzer(unittest.TestCase):
         with self.assertRaises(KeyError):
             analyzer.detect_outliers(column="nonexistent")
 
+    def test_handle_missing_alias(self) -> None:
+        analyzer = DataAnalyzer(self.csv_path)
+        analyzer.load_data()
+        df_imp = analyzer.handle_missing(group_col="category", target_cols=["unit_price"])
+        self.assertEqual(df_imp["unit_price"].isna().sum(), 0)
+
 
 if __name__ == "__main__":
     unittest.main()

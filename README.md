@@ -21,13 +21,72 @@
 
 ---
 
-## 🏗️ 아키텍처 다이어그램
+## 🏗️ 아키텍처 및 API 명명 규칙
+
+* **핵심 모듈**: `src/pipeline.py` (`DataAnalyzer` 클래스)
+  * `load_data()`: CSV 및 `.npy` 이미지 배열 로드
+  * `extract_multimodal_features()`: NumPy 벡터 연산 기반 이미지 통계(`img_mean`, `img_std`, `img_downsampled_mean`) 및 텍스트 피처(`name_length`, `word_count`) 추출
+  * `handle_missing_values()` / `handle_missing()` *(별칭)*: `코디세이 a1-1.md`의 `handle_missing_values()`와 평가 규격의 `handle_missing()` 모두 호환되도록 동일 메서드 별칭 제공
+  * `detect_outliers()`: IQR(`Q3 - Q1`) 기반 이상치 탐지 및 Capping/제거
+  * `compute_statistics()`: 평균, 중앙값, 표준편차, 사분위수(Q1/Q2/Q3) 및 상관계수 행렬 산출
+  * `calculate_rfm()`: RFM 점수화(`VIP`, `Loyal`, `New`, `Churned`)
+* **시각화 모듈**: `src/visualize.py` (6종 EDA 차트 및 이상치 처리 전후 박스플롯 생성)
 
 ![DataAnalyzer OOP 파이프라인 아키텍처](diagrams/01_pipeline_architecture.png)
 
 ---
 
-## 💡 비즈니스 인사이트 (근거 · 실행 · 검증)
+## 📈 시각화 결과 및 노트북 실행 증거
+
+### 노트북 및 시각화 실행 로그
+`notebooks/analysis_report.ipynb` (17셀 전체 실행 완료) 및 `src/visualize.py` 실행 결과:
+```text
+$ python scripts/build_notebook.py
+Executed & saved notebooks\analysis_report.ipynb (17 cells)
+
+$ python src/visualize.py
+Saved: diagrams\outlier_boxplot_comparison.png
+Saved: diagrams\eda_6_charts.png
+```
+
+### 이상치 처리 전후 비교 (동일 스케일 박스플롯)
+![이상치 처리 전후 박스플롯 비교](diagrams/outlier_boxplot_comparison.png)
+
+### 필수 EDA 시각화 6종 (제목 및 축 레이블 포함)
+![EDA 6종 시각화 차트](diagrams/eda_6_charts.png)
+
+---
+
+## 🔬 통계적 방법론 및 대규모 처리 한계·개선안
+
+### 1. IQR 이상치 탐지의 장점 및 비대칭 분포 한계
+* **장점(Robustness)**: 평균과 표준편차를 사용하는 Z-score 방식은 극단값 자체가 평균·표준편차를 끌어올려 탐지력이 떨어지는 반면, IQR(`Q3 - Q1`)은 중앙값과 사분위수 기반이므로 극단치에 강건(Robust)합니다.
+* **비대칭(Skewed) 분포에서의 한계**: 이커머스 거래 금액(`amount`)이나 단가(`unit_price`)처럼 오른쪽 꼬리가 긴(Right-skewed) 분포에서는 정상적인 고가 주문까지 상한(`Q3 + 1.5 * IQR`)을 초과해 이상치로 과잉 탐지될 수 있습니다. 실무에서는 로그 변환(`np.log1p`) 후 IQR을 적용하거나 도메인 가격 상한 정책을 병행해야 합니다.
+
+### 2. GroupBy 결측치 대치의 통계적 위험
+* **그룹 내 분산 축소(Variance Shrinkage)**: 카테고리별 결측치를 모두 동일한 대표값(중앙값/평균)으로 대치하면 실제 가격 변동성이 사라져 그룹 내 표본 분산과 표준편차가 인위적으로 작아집니다.
+* **그룹 간 차이 과장 및 상관 왜곡**: 예를 들어 `Personal Care` 카테고리의 결측치들을 모두 단일 중앙값(`$18.0`)으로 채우면, 해당 그룹 내부의 분산이 줄어들면서 다른 카테고리(`Footwear` 등)와의 평균 차이가 실제보다 과장되어 보일 수 있습니다.
+
+### 3. 대규모 이미지 처리 병목 지점 및 개선 방안
+* **병목 지점**:
+  1. **디스크 I/O**: 수십만 장의 개별 JPEG/PNG 파일을 매번 열어 디코딩할 때 랜덤 I/O 지연이 발생합니다.
+  2. **메모리 적재(RAM)**: 전체 이미지를 한 번에 4D `uint8`/`float32` 텐서로 메모리에 올리면 OOM(Out-Of-Memory) 위험이 있습니다.
+  3. **전처리 연산**: 고해상도 이미지 전체 픽셀 통계 계산 시 CPU 캐시 미스가 증가합니다.
+* **개선 방안**:
+  * `np.memmap` 또는 Parquet/NPY 샤딩 기반 **미니배치(Batch) 스트리밍 처리**
+  * `concurrent.futures.ProcessPoolExecutor`를 활용한 **이미지 디코딩·통계 추출 병렬화**
+  * 탐색/학습 단계에서 `arr[:, ::n, ::n, :]` **스트라이드 다운샘플링(Subsampling)**으로 메모리와 연산량을 $n^2$배 절감
+
+---
+
+## 💡 비즈니스 인사이트 (근거 · 실행 · 검증) & 우선 KPI 기준
+
+### 우선 액션 세그먼트 선정 KPI 기준
+우선순위 산정 시 다음 4가지 KPI를 우선 고려했습니다:
+1. **매출 기여도(Revenue Share)**: 총매출 방어 효과 (`VIP` 최우선)
+2. **이탈 위험도(Recency 경과일) 및 모수 규모**: 단기 회수 가능성 (`Churned` 37.1%)
+3. **객단가 및 구매 빈도(ARPU / Frequency)**
+4. **캠페인 ROI(전환율 대비 쿠폰 비용)**
 
 ### 인사이트 1. 상위 VIP 고객군의 매출 집중과 락인(Lock-in) 전략
 * **(근거)** RFM 분석 결과 **VIP** 세그먼트는 전체 고객 280명 중 `91명(32.5%)`이지만, 평균 구매 빈도 `14.48회`, 평균 구매 금액 `$1,212.75`로 핵심 매출을 견인하고 있습니다.
@@ -46,14 +105,30 @@
 
 ---
 
+## 🤖 머신러닝(ML) 확장 설계 (예상 타겟 및 권장 피처)
+
+본 전처리·RFM 파이프라인의 산출물은 후속 지도학습 모델로 바로 확장할 수 있습니다.
+
+* **예상 예측 타겟(Target)**:
+  1. `is_churned` (이진 분류): 기준일 이후 90일 내 재구매 여부 / 이탈 예측
+  2. `next_purchase_amount` / `LTV` (회귀): 고객별 향후 예상 구매액(생애가치) 예측
+* **권장 입력 피처(Features)**:
+  * **RFM 파생 피처**: `Recency`, `Frequency`, `Monetary`, `R_score`, `F_score`, `M_score`, `RFM_score`
+  * **이미지 멀티모달 피처**: `img_mean`, `img_std`, `img_downsampled_mean`
+  * **텍스트·카탈로그 피처**: `word_count`, `name_length`, `category`, `sub_category`, `gender`, `season`
+
+---
+
 ## 🚀 실행 방법
 
 ```bash
 # 1. 단위 테스트 실행 (Mock/임시파일 기반, < 0.2초)
 python -m unittest discover -s tests -v
 
-# 2. 분석 노트북 실행 결과 확인
-# notebooks/analysis_report.ipynb 열기 또는 재생성:
+# 2. 시각화 6종 및 박스플롯 비교 PNG 생성
+python src/visualize.py
+
+# 3. 분석 노트북 실행 및 저장
 python scripts/build_notebook.py
 ```
 
@@ -83,7 +158,7 @@ codyssey-a1-01 Evaluator Requirement Verification
 ----------------------------------------------------------------
 {
   "status": "PASS",
-  "elapsed_sec": 0.4622,
+  "elapsed_sec": 0.3995,
   "dataset_rows": 2000,
   "dataset_cols": 14,
   "image_shape": [2000, 80, 60, 3],

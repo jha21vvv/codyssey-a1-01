@@ -201,6 +201,10 @@ class DataAnalyzer:
         self.df = df
         return self.df
 
+    # [1차]: 평가 규격 및 외부 호출 호환성을 위해 handle_missing_values 메서드의 별칭(handle_missing)을 제공합니다.
+    # [2차]: 손님이 '결측치 채워줘(handle_missing)'라고 부르든 '결측값 채워줘(handle_missing_values)'라고 부르든 똑같은 기능이 작동하도록 버튼 두 개를 연결해 둡니다.
+    handle_missing = handle_missing_values
+
     # [1차]: IQR(Q3 - Q1) 방식으로 이상치를 탐지하고, action('cap', 'remove', 'none')에 따라 처리한 뒤 전후 통계 리포트를 반환합니다.
     # [2차]: 중앙 50% 구간의 폭(IQR)을 기준으로 정상 울타리를 세우고, 울타리를 넘은 극단값을 울타리 경계로 눌러주거나(cap) 빼낸(remove) 뒤 전후 성적표를 비교합니다.
     def detect_outliers(
