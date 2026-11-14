@@ -1,0 +1,8 @@
+# Raw downloaded datasets (exceeds GitHub 100MB limit; regenerate via scripts/prepare_dataset.py)
+data/raw/
+
+# Python caches
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+.pytest_cache/
