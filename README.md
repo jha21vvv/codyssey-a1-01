@@ -25,7 +25,7 @@
 
 * **핵심 모듈**: `src/pipeline.py` (`DataAnalyzer` 클래스)
   * `load_data()`: CSV 및 `.npy` 이미지 배열 로드
-  * `extract_multimodal_features()`: NumPy 벡터 연산 기반 이미지 통계(`img_mean`, `img_std`, `img_downsampled_mean`) 및 텍스트 피처(`name_length`, `word_count`) 추출
+  * `extract_multimodal_features()`: NumPy 벡터 연산 기반 이미지 통계(`img_mean`, `img_std`, `img_downsampled_mean`) 및 텍스트 피처(`name_length`, `word_count`) 추출 — 연속 메모리(C-order) 배치와 **CPU SIMD(SSE/AVX2/NEON) 벡터 명령어 하드웨어 가속**을 통해 Python `for` 루프의 타입 검사·박싱 오버헤드 없이 다수 픽셀을 병렬 연산합니다([NumPy SIMD 문서](https://numpy.org/doc/stable/reference/simd/index.html)).
   * `handle_missing_values()` / `handle_missing()` *(별칭)*: `코디세이 a1-1.md`의 `handle_missing_values()`와 평가 규격의 `handle_missing()` 모두 호환되도록 동일 메서드 별칭 제공
   * `detect_outliers()`: IQR(`Q3 - Q1`) 기반 이상치 탐지 및 Capping/제거
   * `compute_statistics()`: 평균, 중앙값, 표준편차, 사분위수(Q1/Q2/Q3) 및 상관계수 행렬 산출

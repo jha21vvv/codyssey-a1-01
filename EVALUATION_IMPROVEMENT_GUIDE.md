@@ -81,3 +81,25 @@
 - [x] `src/visualize.py` 생성 (6종 차트 + 박스플롯 전후 비교 PNG 저장)
 - [x] `README.md` 및 `REPORT.md`에 `#2`, `#5`, `#6`, `#13`, `#14`, `#17`, `#18`, `#19` 내용 반영
 - [x] `python -m unittest discover -s tests -v` 및 `python scripts/verify_requirements.py` 재실행 후 커밋/푸시 준비 완료
+
+---
+
+## 4. 2차 개선 계획 (평가 항목 `#16` 대응)
+
+1차 개선 적용 결과 기존 FAIL 항목(`#1`, `#2`, `#5`, `#6`, `#13`, `#14`, `#17`, `#19`)은 모두 해소되었으며, 최종적으로 **평가 항목 `#16` 1건**만 남았습니다.
+
+| 평가 항목 | 현재 상태 | 지적 내용 | 개선 대상 파일 |
+| :--- | :---: | :--- | :--- |
+| **#16** NumPy 벡터화 성능 근거 | FAIL | 연속 메모리·C-레벨 축 연산은 언급했으나 **SIMD/벡터화(하드웨어 가속, CPU 명령어)** 관련 구체적 설명 누락 | `REPORT.md`, `README.md` |
+
+### 2차 구체적 보완 계획
+1. **`REPORT.md` 1절 보강**:
+   * **SIMD(Single Instruction, Multiple Data) 하드웨어 가속**: NumPy의 C/C++ 내부 루프가 CPU의 **SIMD 벡터 명령어 집합(x86 SSE/AVX/AVX2, ARM NEON)**을 활용해 하나의 명령어 사이클에서 여러 개의 픽셀(`uint8`/`float`)을 레지스터 단위로 동시 연산함을 명시.
+   * **캐시 지역성(Cache Locality) & 오버헤드 제거**: 연속 메모리(Contiguous C-order) 배치로 CPU L1/L2 캐시 적중률(Cache Hit)을 높이고, Python `for`문에서 매 원소마다 발생하는 동적 타입 검사 및 객체 박싱(Boxing) 오버헤드를 제거함을 설명.
+   * **참고 자료**: NumPy 공식 문서(*Vectorization & Broadcasting*, *CPU/SIMD Optimizations*) 근거 덧붙이기.
+2. **`README.md` 보강**:
+   * 아키텍처/성능 설명 부분에 SIMD(SSE/AVX) 기반 NumPy 벡터 연산 원리를 요약 추가.
+3. **2차 적용 체크리스트**:
+   - [x] `REPORT.md`에 SIMD/CPU 벡터 명령어 기반 성능 근거 보완
+   - [x] `README.md`에 SIMD 벡터화 요약 문장 추가
+   - [x] `python -m unittest discover -s tests -v` 및 `python scripts/verify_requirements.py` 검증 완료

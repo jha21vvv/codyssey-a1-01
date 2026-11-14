@@ -7,7 +7,10 @@
 ## 1. 아키텍처 및 자료구조 선정 이유
 
 * **객체 지향 파이프라인 (`DataAnalyzer`)**: 전처리 단계(`load_data` → `extract_multimodal_features` → `handle_missing_values`/`handle_missing` → `detect_outliers` → `compute_statistics` → `calculate_rfm`)의 상태(`self.df`, `self.images`, `self.rfm_df`)를 캡슐화하여 노트북(`notebooks/analysis_report.ipynb`), 시각화 모듈(`src/visualize.py`), 테스트, 검증 스크립트에서 동일한 인터페이스로 재사용할 수 있도록 설계했습니다.
-* **NumPy 벡터화 (`O(N · H · W · C)` 연속 메모리 연산)**: 이미지 `(2000, 80, 60, 3)` 텐서를 Python `for`문 없이 C-레벨 축 연산(`mean(axis=(1,2,3))`, `std(axis=(1,2,3))`)과 스트라이드 슬라이싱(`[:, ::2, ::2, :]`)으로 처리하여 2,000장 피처 추출을 수 밀리초 내에 완료합니다.
+* **NumPy 벡터화 (`O(N · H · W · C)` 연속 메모리 + CPU SIMD 하드웨어 가속)**:
+  * 이미지 `(2000, 80, 60, 3)` 텐서를 Python `for`문 없이 C-레벨 축 연산(`mean(axis=(1,2,3))`, `std(axis=(1,2,3))`)과 스트라이드 슬라이싱(`[:, ::2, ::2, :]`)으로 처리하여 2,000장 피처 추출을 수 밀리초 내에 완료합니다.
+  * **하드웨어 가속 원리 (SIMD & 캐시 지역성)**: NumPy의 C/C++ UFunc 커널은 **CPU SIMD(Single Instruction, Multiple Data) 벡터 명령어 집합**(x86 환경의 SSE/AVX/AVX2/AVX-512, ARM 환경의 NEON)을 활용해 단일 CPU 명령어 사이클로 레지스터 내 여러 픽셀 원소를 동시 연산합니다. 또한 데이터가 연속 메모리(Contiguous C-order)에 배치되어 CPU L1/L2 캐시 적중률(Cache Locality)을 극대화하고, Python `for` 루프에서 매 원소마다 발생하는 동적 타입 검사·객체 박싱(Boxing) 및 바이트코드 디스패치 오버헤드를 제거합니다.
+  * *참고 자료*: [NumPy CPU/SIMD Optimizations](https://numpy.org/doc/stable/reference/simd/index.html)
 * **제약 준수**: OpenCV, Pillow, Scikit-learn, NLTK, 자동 EDA 라이브러리를 전혀 사용하지 않고 `numpy`, `pandas`, `matplotlib`, `seaborn`만으로 전체 파이프라인을 완결했습니다.
 
 ---
